@@ -11,3 +11,4 @@ daemon
 config
 tests
 logs
+ping.log
