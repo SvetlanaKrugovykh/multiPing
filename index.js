@@ -8,6 +8,7 @@ const fastify = Fastify({ logger: true });
 const IPS = process.env.IPS.split(',');
 const PING_INTERVAL = Number(process.env.PING_INTERVAL) || 1000
 const DELAY_THRESHOLD = Number(process.env.DELAY_THRESHOLD) || 100
+const ALLOW_IPS = process.env.ALLOW_IPS ? process.env.ALLOW_IPS.split(',') : []
 
 const logFile = path.join(__dirname, 'ping.log')
 fs.writeFileSync(logFile, '') // Reset log file on server start
@@ -43,6 +44,20 @@ async function doPing() {
 }
 
 setInterval(doPing, PING_INTERVAL)
+
+// IP whitelist middleware
+fastify.addHook('preHandler', async (request, reply) => {
+  if (ALLOW_IPS.length > 0) {
+    const clientIP = request.ip || request.headers['x-forwarded-for'] || request.raw.remoteAddress
+    const isAllowed = ALLOW_IPS.some(allowedIP => 
+      clientIP.includes(allowedIP) || allowedIP === '127.0.0.1' && clientIP.includes('127.0.0.1')
+    )
+    if (!isAllowed) {
+      reply.code(403).send({ error: 'Access denied' })
+      return
+    }
+  }
+})
 
 fastify.register(require('@fastify/static'), {
   root: path.join(__dirname, 'public'),
