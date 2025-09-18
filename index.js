@@ -49,7 +49,7 @@ setInterval(doPing, PING_INTERVAL)
 fastify.addHook('preHandler', async (request, reply) => {
   if (ALLOW_IPS.length > 0) {
     const clientIP = request.ip || request.headers['x-forwarded-for'] || request.raw.remoteAddress
-    const isAllowed = ALLOW_IPS.some(allowedIP => 
+    const isAllowed = ALLOW_IPS.some(allowedIP =>
       clientIP.includes(allowedIP) || allowedIP === '127.0.0.1' && clientIP.includes('127.0.0.1')
     )
     if (!isAllowed) {
