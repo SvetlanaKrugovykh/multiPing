@@ -9,6 +9,7 @@ const IPS = process.env.IPS.split(',');
 const PING_INTERVAL = Number(process.env.PING_INTERVAL) || 1000
 const DELAY_THRESHOLD = Number(process.env.DELAY_THRESHOLD) || 100
 const ALLOW_IPS = process.env.ALLOW_IPS ? process.env.ALLOW_IPS.split(',') : []
+const SOURCE_IP = process.env.SOURCE_IP
 
 const logFile = path.join(__dirname, 'ping.log')
 fs.writeFileSync(logFile, '') // Reset log file on server start
@@ -29,7 +30,11 @@ function getColor(status, time) {
 async function doPing() {
   for (const ip of IPS) {
     try {
-      const res = await ping.promise.probe(ip, { timeout: 2 })
+      const pingOptions = { timeout: 2 }
+      if (SOURCE_IP) {
+        pingOptions.sourceAddr = SOURCE_IP
+      }
+      const res = await ping.promise.probe(ip, pingOptions)
       const time = res.alive ? res.time : null
       const color = getColor(res.alive, time)
       const entry = { time: Date.now(), delay: time, color }
