@@ -10,12 +10,17 @@ const PING_INTERVAL = Number(process.env.PING_INTERVAL) || 1000
 const DELAY_THRESHOLD = Number(process.env.DELAY_THRESHOLD) || 100
 const ALLOW_IPS = process.env.ALLOW_IPS ? process.env.ALLOW_IPS.split(',') : []
 const SOURCE_IP = process.env.SOURCE_IP
+const LOST_SEC = Number(process.env.LOST_SEC) || 5
 
 const logFile = path.join(__dirname, 'ping.log')
 fs.writeFileSync(logFile, '') // Reset log file on server start
 
 let pingResults = {}
-IPS.forEach(ip => pingResults[ip] = [])
+let lostCounters = {}
+IPS.forEach(ip => {
+  pingResults[ip] = []
+  lostCounters[ip] = 0
+})
 
 function logPing(ip, result) {
   fs.appendFileSync(logFile, `${new Date().toISOString()} ${ip} ${JSON.stringify(result)}\n`)
@@ -29,6 +34,7 @@ function getColor(status, time) {
 
 async function doPing() {
   for (const ip of IPS) {
+    let lost = false
     try {
       const pingOptions = { timeout: 2 }
       if (SOURCE_IP) {
@@ -40,10 +46,22 @@ async function doPing() {
       const entry = { time: Date.now(), delay: time, color }
       pingResults[ip].push(entry)
       logPing(ip, entry)
+      if (res.alive) {
+        lostCounters[ip] = 0
+      } else {
+        lostCounters[ip] += PING_INTERVAL / 1000
+      }
     } catch (e) {
+      lostCounters[ip] += PING_INTERVAL / 1000
       const entry = { time: Date.now(), delay: null, color: 'red' }
       pingResults[ip].push(entry)
       logPing(ip, entry)
+    }
+    if (lostCounters[ip] >= LOST_SEC) {
+      const lostEntry = { time: Date.now(), delay: null, color: 'bold-red', lost: true }
+      pingResults[ip].push(lostEntry)
+      logPing(ip, lostEntry)
+      lostCounters[ip] = 0 // сбрасываем счетчик после маркера
     }
   }
 }
