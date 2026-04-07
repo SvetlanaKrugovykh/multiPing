@@ -1,10 +1,19 @@
 require('dotenv').config()
 const Fastify = require('fastify')
 const ping = require('ping')
-const fs = require('fs')
-const path = require('path')
+const fs = require('node:fs')
+const path = require('node:path')
 
-const fastify = Fastify({ logger: true });
+const httpsOptions = {
+  key: fs.readFileSync(path.join(__dirname, 'ssl', 'domain.key')),
+  cert: fs.readFileSync(path.join(__dirname, 'ssl', '_silver-service_com_ua.crt')),
+  ca: fs.readFileSync(path.join(__dirname, 'ssl', 'ca-bundle.crt')),
+};
+
+const fastify = Fastify({
+  logger: true,
+  https: httpsOptions
+});
 const IPS = process.env.IPS.split(',');
 const PING_INTERVAL = Number(process.env.PING_INTERVAL) || 1000
 const DELAY_THRESHOLD = Number(process.env.DELAY_THRESHOLD) || 100
@@ -34,7 +43,7 @@ function getColor(status, time) {
 
 async function doPing() {
   for (const ip of IPS) {
-    let lost = false
+    // let lost = false
     try {
       const pingOptions = { timeout: 2 }
       if (SOURCE_IP) {
@@ -53,7 +62,7 @@ async function doPing() {
       }
     } catch (e) {
       lostCounters[ip] += PING_INTERVAL / 1000
-      const entry = { time: Date.now(), delay: null, color: 'red' }
+      const entry = { time: Date.now(), delay: null, color: 'red', error: e.message }
       pingResults[ip].push(entry)
       logPing(ip, entry)
     }
@@ -93,5 +102,5 @@ fastify.get('/api/ping', async (req, reply) => {
 
 fastify.listen({ port: process.env.PORT || 3000, host: process.env.HOST || '0.0.0.0' }, err => {
   if (err) throw err
-  console.log(`Server running on http://${process.env.HOST || '0.0.0.0'}:${process.env.PORT || 3000}`)
+  console.log(`Server running on https://${process.env.HOST || '0.0.0.0'}:${process.env.PORT || 3000}`)
 })
